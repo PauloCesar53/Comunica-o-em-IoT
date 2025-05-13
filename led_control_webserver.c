@@ -17,12 +17,16 @@
 
 // Definição dos pinos dos LEDs
 #define LED_PIN CYW43_WL_GPIO_LED_PIN   // GPIO do CI CYW43
-#define LED_BLUE_PIN 12                 // GPIO12 - LED azul
+#define LED_BLUE_PIN 12                 // GPIO12 - LED azul Simula bomba d'agua
 #define LED_GREEN_PIN 11                // GPIO11 - LED verde
 #define LED_RED_PIN 13                  // GPIO13 - LED vermelho
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
 #define botaoB 6
+#define JOY_Y 26//eixo  y segundo diagrama BitDogLab (Sensor de Temperatura Simulado)
+#define JOY_X 27//eixo  x segundo diagrama BitDogLab (Sensor de umidade relativa do ar)
+
+
 void Gpio_irq_handler(uint gpio, uint32_t events)//task para botões 
 {
     if(gpio_get(botaoB)==0){
@@ -40,6 +44,9 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
 
 // Leitura da temperatura interna
 float temp_read(void);
+
+float temp_sensor_T(void);//função que ler senor de temperaura simulado joy Y
+float Nivel_reservatorio(void);//função que ler nível  de reservatorio simulado joy X
 
 // Tratamento do request do usuário
 void user_request(char **request);
@@ -115,6 +122,9 @@ int main()
     // Inicializa o conversor ADC
     adc_init();
     adc_set_temp_sensor_enabled(true);
+    adc_gpio_init(JOY_Y);//inicializando pino direção y 
+    adc_gpio_init(JOY_X);//inicializando pino direção x
+
 
     while (true)
     {
@@ -172,9 +182,9 @@ void user_request(char **request){
     {
         gpio_put(LED_GREEN_PIN, 1);
     }
-    else if (strstr(*request, "GET /green_off") != NULL)
+    else if (strstr(*request, "GET /atualizar") != NULL)
     {
-        gpio_put(LED_GREEN_PIN, 0);
+        
     }
     else if (strstr(*request, "GET /red_on") != NULL)
     {
@@ -202,7 +212,18 @@ float temp_read(void){
     float temperature = 27.0f - ((raw_value * conversion_factor) - 0.706f) / 0.001721f;
         return temperature;
 }
-
+float temp_sensor_T(void){//leitura sensor de Temperatura simulado 
+    adc_select_input(0);                                    // canal adc JOY para eixo y
+    uint16_t JOY_Y_value = adc_read();                      // Lê o valor do eixo y, de 0 a 4095.
+    uint joy_y = JOY_Y_value / 4095.0 * 50;
+        return joy_y;
+}
+float Nivel_reservatorio(void){//leitura nível reservatório simulado 
+    adc_select_input(1);                                    // canal adc JOY para eixo y
+    uint16_t JOY_X_value = adc_read();                      // Lê o valor do eixo y, de 0 a 4095.
+    uint joy_x = JOY_X_value / 4095.0 * 100;
+        return joy_x;
+}
 // Função de callback para processar requisições HTTP
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
 {
@@ -226,6 +247,9 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     // Leitura da temperatura interna
     float temperature = temp_read();
 
+    // Leitura da temperatura sensor 
+    float temp_sesor = temp_sensor_T();
+    float nivel_reservatorio =Nivel_reservatorio();
     // Cria a resposta HTML
     char html[1024];
 
@@ -237,7 +261,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
              "<!DOCTYPE html>\n"
              "<html>\n"
              "<head>\n"
-             "<title> Embarcatech - LED Control </title>\n"
+             "<title> Monitoramento Temperatura e reservatorio </title>\n"
              "<style>\n"
              "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
              "h1 { font-size: 64px; margin-bottom: 30px; }\n"
@@ -246,17 +270,15 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
              "</style>\n"
              "</head>\n"
              "<body>\n"
-             "<h1>Embarcatech: LED Control</h1>\n"
-             "<form action=\"./blue_on\"><button>Ligar Azul</button></form>\n"
-             "<form action=\"./blue_off\"><button>Desligar Azul</button></form>\n"
-             "<form action=\"./green_on\"><button>Ligar Verde</button></form>\n"
-             "<form action=\"./green_off\"><button>Desligar Verde</button></form>\n"
-             "<form action=\"./red_on\"><button>Ligar Vermelho</button></form>\n"
-             "<form action=\"./red_off\"><button>Desligar Vermelho</button></form>\n"
-             "<p class=\"temperature\">Temperatura Interna: %.2f &deg;C</p>\n"
+             "<h1>Monitoramento Temperatura e reservatorio</h1>\n"
+             "<form action=\"./blue_on\"><button>Ligar Bomba</button></form>\n"
+             "<form action=\"./blue_off\"><button>Desligar Bomba</button></form>\n"
+             "<form action=\"./atualizar\"><button>Atualizar sensores</button></form>\n"
+             "<p class=\"temperature\">Temperatura Sensor: %.2f &deg;C</p>\n"
+             "<p class=\"temperature\">Nivel reservatorio: %.2f %%</p>\n"
              "</body>\n"
              "</html>\n",
-             temperature);
+             temp_sesor,nivel_reservatorio);
 
     // Escreve dados para envio (mas não os envia imediatamente).
     tcp_write(tpcb, html, strlen(html), TCP_WRITE_FLAG_COPY);
