@@ -12,14 +12,13 @@
 #include "lwip/netif.h"          // Lightweight IP stack - fornece funções e estruturas para trabalhar com interfaces de rede (netif)
 
 // Credenciais WIFI - Tome cuidado se publicar no github!
-//#define WIFI_SSID "SEU_SSID"
-//#define WIFI_PASSWORD "SUA_SENHA"
+#define WIFI_SSID "SEU_SSID"
+#define WIFI_PASSWORD "SUA_SENHA"
 
 // Definição dos pinos dos LEDs
 #define LED_PIN CYW43_WL_GPIO_LED_PIN   // GPIO do CI CYW43
 #define LED_BLUE_PIN 12                 // GPIO12 - LED azul Simula bomba d'agua
-#define LED_GREEN_PIN 11                // GPIO11 - LED verde
-#define LED_RED_PIN 13                  // GPIO13 - LED vermelho
+
 // Trecho para modo BOOTSEL com botão B
 #include "pico/bootrom.h"
 #define botaoB 6
@@ -41,9 +40,6 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err);
 
 // Função de callback para processar requisições HTTP
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
-
-// Leitura da temperatura interna
-float temp_read(void);
 
 float temp_sensor_T(void);//função que ler senor de temperaura simulado joy Y
 float Nivel_reservatorio(void);//função que ler nível  de reservatorio simulado joy X
@@ -150,14 +146,6 @@ void gpio_led_bitdog(void){
     gpio_init(LED_BLUE_PIN);
     gpio_set_dir(LED_BLUE_PIN, GPIO_OUT);
     gpio_put(LED_BLUE_PIN, false);
-    
-    gpio_init(LED_GREEN_PIN);
-    gpio_set_dir(LED_GREEN_PIN, GPIO_OUT);
-    gpio_put(LED_GREEN_PIN, false);
-    
-    gpio_init(LED_RED_PIN);
-    gpio_set_dir(LED_RED_PIN, GPIO_OUT);
-    gpio_put(LED_RED_PIN, false);
 }
 
 // Função de callback ao aceitar conexões TCP
@@ -170,29 +158,17 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 // Tratamento do request do usuário - digite aqui
 void user_request(char **request){
 
-    if (strstr(*request, "GET /blue_on") != NULL)
+    if (strstr(*request, "GET /blue_on") != NULL)//liga bomba d'água
     {
         gpio_put(LED_BLUE_PIN, 1);
     }
-    else if (strstr(*request, "GET /blue_off") != NULL)
+    else if (strstr(*request, "GET /blue_off") != NULL)//desliga bomba d'água
     {
         gpio_put(LED_BLUE_PIN, 0);
     }
-    else if (strstr(*request, "GET /green_on") != NULL)
-    {
-        gpio_put(LED_GREEN_PIN, 1);
-    }
     else if (strstr(*request, "GET /atualizar") != NULL)
     {
-        
-    }
-    else if (strstr(*request, "GET /red_on") != NULL)
-    {
-        gpio_put(LED_RED_PIN, 1);
-    }
-    else if (strstr(*request, "GET /red_off") != NULL)
-    {
-        gpio_put(LED_RED_PIN, 0);
+        //apenas para atualizar 
     }
     else if (strstr(*request, "GET /on") != NULL)
     {
@@ -204,14 +180,7 @@ void user_request(char **request){
     }
 };
 
-// Leitura da temperatura interna
-float temp_read(void){
-    adc_select_input(4);
-    uint16_t raw_value = adc_read();
-    const float conversion_factor = 3.3f / (1 << 12);
-    float temperature = 27.0f - ((raw_value * conversion_factor) - 0.706f) / 0.001721f;
-        return temperature;
-}
+
 float temp_sensor_T(void){//leitura sensor de Temperatura simulado 
     adc_select_input(0);                                    // canal adc JOY para eixo y
     uint16_t JOY_Y_value = adc_read();                      // Lê o valor do eixo y, de 0 a 4095.
@@ -244,11 +213,10 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     // Tratamento de request - Controle dos LEDs
     user_request(&request);
     
-    // Leitura da temperatura interna
-    float temperature = temp_read();
-
     // Leitura da temperatura sensor 
     float temp_sesor = temp_sensor_T();
+
+    // Leitura do reservatorio
     float nivel_reservatorio =Nivel_reservatorio();
     // Cria a resposta HTML
     char html[1024];
