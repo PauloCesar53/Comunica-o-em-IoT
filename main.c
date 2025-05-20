@@ -244,6 +244,7 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
              "<form action=\"./atualizar\"><button>Atualizar sensores</button></form>\n"
              "<p class=\"temperature\">Temperatura Sensor: %.2f &deg;C</p>\n"
              "<p class=\"temperature\">Nivel reservatorio: %.2f %%</p>\n"
+             "<script>setInterval(function(){location.href='/'; }, 3000);</script>"
              "</body>\n"
              "</html>\n",
              temp_sesor,nivel_reservatorio);
